@@ -112,8 +112,9 @@ app.get('createQuestion', function(req, res) {
 			console.log("not able to get connection "+ err);
 			res.status(400).send(err);
 		}
-	}
-	var A = "What is you name"
+	});
+	
+	var A = "What is you name";
 	client.query('INSERT INTO questions ("'+ a + ', answer1, answer2, answer3, answer4, correctAnswer, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', function(err, result) {
 		done();
 		if(err){
