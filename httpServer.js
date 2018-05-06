@@ -104,3 +104,23 @@ pool.connect(function(err,client,done) {
 		});
 	});
 });
+
+// FIXME not complete yet
+app.get('createQuestion', function(req, res) {
+	pool.connect(function(err, client, done) {
+		if (err) {
+			console.log("not able to get connection "+ err);
+			res.status(400).send(err);
+		}
+	}
+	var A = "What is you name"
+	client.query('INSERT INTO questions ("'+ a + ', answer1, answer2, answer3, answer4, correctAnswer, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', function(err, result) {
+		done();
+		if(err){
+			console.log(err);
+			res.status(400).send(err);
+		}
+		res.status(200).send(result.rows);
+		});
+	});
+}
