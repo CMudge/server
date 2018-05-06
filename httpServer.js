@@ -1,6 +1,7 @@
 // express is the server that forms part of the nodejs program
 var express = require('express');
 var path = require("path");
+var fs = require("fs");
 var app = express();
 
 	// adding functionality to allow cross-domain queries when PhoneGap is running a server
