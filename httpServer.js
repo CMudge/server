@@ -122,6 +122,5 @@ app.get('createQuestion', function(req, res) {
 			res.status(400).send(err);
 		}
 		res.status(200).send(result.rows);
-		});
 	});
 });
