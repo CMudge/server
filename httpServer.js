@@ -1,4 +1,4 @@
-// express is the server that forms part of the nodejs program
+// Load the libraries
 var express = require('express');
 var path = require("path");
 var fs = require("fs");
@@ -12,6 +12,7 @@ app.use(bodyParser.urlencoded({
 app.use(bodyParser.json());   
 
 // adding functionality to allow cross-domain queries when PhoneGap is running a server
+// this prevents cross-domain errors
 app.use(function(req, res, next) {
 	res.setHeader("Access-Control-Allow-Origin", "*");
 	res.setHeader("Access-Control-Allow-Headers", "X-Requested-With");
@@ -28,25 +29,24 @@ httpServer.listen(4480);
 
 
 app.get('/closestQuestion', function (req,res) {
-pool.connect(function(err,client,done) {
-	colnames = ['question', 'answer1', 'answer2', 'answer3', 'answer4', 'correctanswer']
-	
+pool.connect(function(err,client,done) {	
 	if(err){
 		console.log("not able to get connection "+ err);
 		res.status(400).send(err);
 	}
+	// Code to parse "GET" arguments taken from:
+	// https://stackoverflow.com/questions/6912584/how-to-get-get-query-string-variables-in-express-js-on-node-js
 	var parts = url.parse(req.url, true);
-    var query = parts.query;
-	var lat = query.lat;
-	var lng = query.lng;
+    var args = parts.query;
+	var lat = args.lat;
+	var lng = args.lng;
 	var query = "SELECT 'FeatureCollection' as type,"+
 "        array_to_json(array_agg(f)) as features "+
 "	FROM ("+
 "	SELECT 'Feature' As type,"+
 "	ST_AsGeoJSON(lg.geom)::json As geometry,"+
-"	row_to_json((SELECT l FROM (SELECT question,answer1,answer2,answer3,answer4,correctanswer) as l)) as properties,"+
-"	ST_Distance(lg.geom, ST_GeomFromText('POINT(-0.109989 51.512684)', 4326)) as distance "+
-"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT(-0.109989 51.512684)', 4326)) as distance "+
+"	row_to_json((SELECT l FROM (SELECT question,answer1,answer2,answer3,answer4,correctanswer) as l)) as properties "+
+"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT("+lng+" "+lat+")', 4326)) as distance "+
 "FROM questions ORDER BY distance LIMIT 1) lg"+
 ") As f;";
 	console.log(query);
