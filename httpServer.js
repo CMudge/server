@@ -9,30 +9,28 @@ var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({
   extended: true
 }));
-app.use(bodyParser.json());
+app.use(bodyParser.json());   
 
-
-     
-
-	// adding functionality to allow cross-domain queries when PhoneGap is running a server
-	app.use(function(req, res, next) {
-		res.setHeader("Access-Control-Allow-Origin", "*");
-		res.setHeader("Access-Control-Allow-Headers", "X-Requested-With");
-		res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
-		next();
-	});
+// adding functionality to allow cross-domain queries when PhoneGap is running a server
+app.use(function(req, res, next) {
+	res.setHeader("Access-Control-Allow-Origin", "*");
+	res.setHeader("Access-Control-Allow-Headers", "X-Requested-With");
+	res.setHeader('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+	next();
+});
 	
+// add an http server to serve files to the Edge browser 
+// due to certificate issues it rejects the https files if they are not
+// directly called in a typed URL
+var http = require('http');
+var httpServer = http.createServer(app); 
+httpServer.listen(4480);
 
-	// add an http server to serve files to the Edge browser 
-	// due to certificate issues it rejects the https files if they are not
-	// directly called in a typed URL
-	var http = require('http');
-	var httpServer = http.createServer(app); 
-	httpServer.listen(4480);
-	
-	
+
 app.get('/closestQuestion', function (req,res) {
 pool.connect(function(err,client,done) {
+	colnames = ['question', 'answer1', 'answer2', 'answer3', 'answer4', 'correctanswer']
+	
 	if(err){
 		console.log("not able to get connection "+ err);
 		res.status(400).send(err);
@@ -41,7 +39,16 @@ pool.connect(function(err,client,done) {
     var query = parts.query;
 	var lat = query.lat;
 	var lng = query.lng;
-	var query = "SELECT questions.*, ST_Distance(questions.geom, ST_GeomFromText('POINT("+lng+" "+lat+")', 4326)) as distance FROM questions ORDER BY distance LIMIT 1;";
+	var query = "SELECT 'FeatureCollection' as type,"+
+"        array_to_json(array_agg(f)) as features "+
+"	FROM ("+
+"	SELECT 'Feature' As type,"+
+"	ST_AsGeoJSON(lg.geom)::json As geometry,"+
+"	row_to_json((SELECT l FROM (SELECT question,answer1,answer2,answer3,answer4,correctanswer) as l)) as properties,"+
+"	ST_Distance(lg.geom, ST_GeomFromText('POINT(-0.109989 51.512684)', 4326)) as distance "+
+"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT(-0.109989 51.512684)', 4326)) as distance "+
+"FROM questions ORDER BY distance LIMIT 1) lg"+
+") As f;";
 	console.log(query);
 	client.query(query, function(err, result) {
 		done();
@@ -84,61 +91,59 @@ app.post('/uploadData',function(req,res){
 	}); 
 });
 	
-	app.get('/getGeoJSON/:tablename/:geomcolumn', function (req,res) {
-     pool.connect(function(err,client,done) {
-       if(err){
-             console.log("not able to get connection "+ err);
-             res.status(400).send(err);
-             }
-             var colnames = "";
-             // first get a list of the columns that are in the table
-             // use string_agg to generate a comma separated list that can then be pasted into the next query
-             var querystring = "select string_agg(colname,',') from ( select column_name as colname ";
-			 querystring = querystring + " FROM information_schema.columns as colname ";
-             querystring = querystring + " where table_name = '"+req.params.tablename +"'";
-             querystring = querystring + " and column_name <> '"+req.params.geomcolumn+"') as cols ";
-             console.log(querystring);
-
+app.get('/getGeoJSON/:tablename/:geomcolumn', function (req,res) {
+	pool.connect(function(err,client,done) {
+        if(err){
+            console.log("not able to get connection "+ err);
+            res.status(400).send(err);
+        }
+		var colnames = "";
+		// first get a list of the columns that are in the table
+		// use string_agg to generate a comma separated list that can then be pasted into the next query
+		var querystring = "select string_agg(colname,',') from ( select column_name as colname ";
+		querystring = querystring + " FROM information_schema.columns as colname ";
+		querystring = querystring + " where table_name = '"+req.params.tablename +"'";
+		querystring = querystring + " and column_name <> '"+req.params.geomcolumn+"') as cols ";
+		console.log(querystring);
 			 
-			   // now run the query
-				client.query(querystring,function(err,result){
-				//call `done()` to release the client back to the pool
-			   console.log("trying");
-					  done();
-				   if(err){
-					  console.log(err);
-						res.status(400).send(err);
-				}
+		// now run the query
+		client.query(querystring,function(err,result){
+		//call `done()` to release the client back to the pool
+		console.log("trying");
+		done();
+		if (err){
+		    console.log(err);
+			res.status(400).send(err);
+		}
        
-					for (var i =0; i< result.rows.length ;i++) {
-						   console.log(result.rows[i].string_agg);
-					}
-				thecolnames = result.rows[0].string_agg;
-					   colnames = thecolnames;
-					   console.log("the colnames "+thecolnames);
+		for (var i =0; i< result.rows.length ;i++) {
+		    console.log(result.rows[i].string_agg);
+		}
+		thecolnames = result.rows[0].string_agg;
+		colnames = thecolnames;
+		console.log("the colnames "+thecolnames);
 // now use the inbuilt geoJSON functionality
 // and create the required geoJSON format using a query adapted from
-             // http://www.postgresonline.com/journal/archives/267-Creating-GeoJSON-Feature-Collections-with-JSON-and-PostGIS-functions.html, accessed 4th January 2018
-             // note that query needs to be a single string with no line breaks so build it up bit by bit
-             var querystring = " SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features  FROM ";
-             querystring = querystring + "(SELECT 'Feature' As type     ,ST_AsGeoJSON(lg." + req.params.geomcolumn+")::json As geometry, ";
-			 querystring = querystring + "row_to_json((SELECT l FROM (SELECT "+colnames + ") As l      )) As properties";
-             querystring = querystring + "   FROM "+req.params.tablename+"  As lg limit 100  ) As f ";
-			 console.log(querystring);
-			// run the second query
-			client.query(querystring,function(err,result){
-			   //call `done()` to release the client back to the pool
+        // http://www.postgresonline.com/journal/archives/267-Creating-GeoJSON-Feature-Collections-with-JSON-and-PostGIS-functions.html, accessed 4th January 2018
+        // note that query needs to be a single string with no line breaks so build it up bit by bit
+		var querystring = " SELECT 'FeatureCollection' As type, array_to_json(array_agg(f)) As features  FROM ";
+		querystring = querystring + "(SELECT 'Feature' As type     ,ST_AsGeoJSON(lg." + req.params.geomcolumn+")::json As geometry, ";
+		querystring = querystring + "row_to_json((SELECT l FROM (SELECT "+colnames + ") As l      )) As properties";
+		querystring = querystring + "   FROM "+req.params.tablename+"  As lg limit 100  ) As f ";
+		console.log(querystring);
+		// run the second query
+		client.query(querystring,function(err,result){
+			//call `done()` to release the client back to the pool
 			done();
-			if(err){
-						 console.log(err);
-						 res.status(400).send(err);
-			 }
+			if(err) {
+				console.log(err);
+				res.status(400).send(err);
+			}
 			res.status(200).send(result.rows);
 			});
 		});
 	}); 
 });
-
 
 // read in the file and force it to be a string by adding "" at the beginning
 var configtext = ""+fs.readFileSync("/home/studentuser/certs/postGISConnection.js");
@@ -153,23 +158,3 @@ for (var i = 0; i < configarray.length; i++) {
 
 var pg = require('pg');
 var pool = new pg.Pool(config);
-
-
-app.get('postgistest', function (req,res) {
-pool.connect(function(err,client,done) {
-	if(err){
-		console.log("not able to get connection "+ err);
-		res.status(400).send(err);
-	}
-	client.query('SELECT name FROM united_kingdom_counties',function(err,result) {
-		done();
-		if(err){
-			console.log(err);
-			res.status(400).send(err);
-		}
-		res.status(200).send(result.rows);
-		});
-	});
-});
-
-
