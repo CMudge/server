@@ -29,34 +29,36 @@ httpServer.listen(4480);
 
 
 app.get('/closestQuestion', function (req,res) {
-pool.connect(function(err,client,done) {	
-	if(err){
-		console.log("not able to get connection "+ err);
-		res.status(400).send(err);
-	}
-	// Code to parse "GET" arguments taken from:
-	// https://stackoverflow.com/questions/6912584/how-to-get-get-query-string-variables-in-express-js-on-node-js
-	var parts = url.parse(req.url, true);
-    var args = parts.query;
-	var lat = args.lat;
-	var lng = args.lng;
-	var query = "SELECT 'FeatureCollection' as type,"+
-"        array_to_json(array_agg(f)) as features "+
-"	FROM ("+
-"	SELECT 'Feature' As type,"+
-"	ST_AsGeoJSON(lg.geom)::json As geometry,"+
-"	row_to_json((SELECT l FROM (SELECT question,answer1,answer2,answer3,answer4,correctanswer) as l)) as properties "+
-"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT("+lng+" "+lat+")', 4326)) as distance "+
-"FROM questions ORDER BY distance LIMIT 1) lg"+
-") As f;";
-	console.log(query);
-	client.query(query, function(err, result) {
-		done();
+	pool.connect(function(err,client,done) {	
 		if(err){
-			console.log(err);
+			console.log("not able to get connection "+ err);
 			res.status(400).send(err);
 		}
-		res.status(200).send(result.rows);
+		console.log("Request received closestQuestion");
+		// Code to parse "GET" arguments taken from:
+		// https://stackoverflow.com/questions/6912584/how-to-get-get-query-string-variables-in-express-js-on-node-js
+		var parts = url.parse(req.url, true);
+		var args = parts.query;
+		var lat = args.lat;
+		var lng = args.lng;
+		var query = "SELECT 'FeatureCollection' as type,"+
+	"        array_to_json(array_agg(f)) as features "+
+	"	FROM ("+
+	"	SELECT 'Feature' As type,"+
+	"	ST_AsGeoJSON(lg.geom)::json As geometry,"+
+	"	row_to_json((SELECT l FROM (SELECT question,answer1,answer2,answer3,answer4,correctanswer) as l)) as properties "+
+	"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT("+lng+" "+lat+")', 4326)) as distance "+
+	"FROM questions ORDER BY distance LIMIT 1) lg"+
+	") As f;";
+		console.log(query);
+		client.query(query, function(err, result) {
+			done();
+			if(err){
+				console.log(err);
+				res.status(400).send(err);
+			}
+			res.status(200).send(result.rows);
+			console.log('rows sent');
 		});
 	});
 });
@@ -72,7 +74,7 @@ app.post('/createQuestion',function(req,res){
              }
 			 
 			 // pull the geometry component together
-			var geometrystring = "st_geomfromtext('POINT(" + req.body.longitude + " " + req.body.latitude + ")', 4326";
+			var geometrystring = "st_geomfromtext('POINT(" + req.body.lng + " " + req.body.lat + ")', 4326";
 			 
              var querystring = "INSERT into questions (question, answer1, answer2, answer3, answer4, correctAnswer, geom) values ('" + req.body.question + "','" + req.body.answer1 + "','" + req.body.answer2 +"','" + req.body.answer3 + "','" + req.body.answer4 + "','" + req.body.correctAnswer + "'," + geometrystring + "));";
 			 
