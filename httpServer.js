@@ -7,7 +7,7 @@ var app = express();
 
 var bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({
-  extended: true
+	extended: true
 }));
 app.use(bodyParser.json());   
 
@@ -59,38 +59,63 @@ app.get('/closestQuestion', function (req,res) {
 			}
 			res.status(200).send(result.rows);
 			console.log('rows sent');
+			console.log(client.responseText);
 		});
 	});
 });
 	
-app.post('/createQuestion',function(req,res){
-       // note that we are using POST here as we are uploading data
-       // so the parameters form part of the BODY of the request rather than the RESTful API
-       console.dir(req.body);
-       pool.connect(function(err,client,done) {
-             if(err){
-             console.log("not able to get connection "+ err);
-             res.status(400).send(err);
-             }
-			 
-			 // pull the geometry component together
-			var geometrystring = "st_geomfromtext('POINT(" + req.body.lng + " " + req.body.lat + ")', 4326";
-			 
-             var querystring = "INSERT into questions (question, answer1, answer2, answer3, answer4, correctAnswer, geom) values ('" + req.body.question + "','" + req.body.answer1 + "','" + req.body.answer2 +"','" + req.body.answer3 + "','" + req.body.answer4 + "','" + req.body.correctAnswer + "'," + geometrystring + "));";
-			 
-             console.log(querystring);
-             client.query(querystring, function(err,result) {
-				done();
-				if(err){
-					console.log(err);
-					res.status(400).send(err);
-				}
-				
-          res.status(200).send("row inserted");
-       });
+app.post('/createQuestion', function(req,res) {
+    // note that we are using POST here as we are uploading data
+    // so the parameters form part of the BODY of the request rather than the RESTful API
+    console.dir(req.body);
+    pool.connect(function(err,client,done) {
+		if(err){
+			console.log("not able to get connection "+ err);
+			res.status(400).send(err);
+		}
+				 
+		// pull the geometry component together
+		var geometrystring = "st_geomfromtext('POINT(" + req.body.lng + " " + req.body.lat + ")', 4326";
+				 
+		var querystring = "INSERT into questions (question, answer1, answer2, answer3, answer4, correctAnswer, geom) values ('" + req.body.question + "','" + req.body.answer1 + "','" + req.body.answer2 +"','" + req.body.answer3 + "','" + req.body.answer4 + "','" + req.body.correctAnswer + "'," + geometrystring + "));";
+				 
+		console.log(querystring);
+		client.query(querystring, function(err,result) {
+			done();
+			if(err){
+				console.log(err);
+				res.status(400).send(err);
+			}		
+			res.status(200).send("Question created successfully");
+        });
+	});
+});
+
+
+
+app.post('/submitAnswer', function(req,res) {
+	// note that we are using POST here as we are uploading data
+	// so the parameters form part of the BODY of the request rather than the RESTful API
+	console.dir(req.body);
+	pool.connect(function(err,client,done) {
+		if(err){
+			console.log("not able to get connection "+ err);
+			res.status(400).send(err);
+		}
+
+		var querystring = "INSERT into answers (question, submittedAnswer, deviceUUID) values ('" + req.body.question + "','" + req.body.submittedAnswer + "','" + req.body.deviceUUID + "');";
+		console.log(querystring);
+		client.query(querystring, function(err,result) {
+			done();
+			if(err){
+				console.log(err);
+				res.status(400).send(err);
+			}
+			res.status(200).send("Answer submitted successfully");
+		});
 	}); 
 });
-	
+
 
 // read in the file and force it to be a string by adding "" at the beginning
 var configtext = ""+fs.readFileSync("/home/studentuser/certs/postGISConnection.js");
