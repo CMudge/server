@@ -17,9 +17,9 @@ The server allows the user to insert new questions into the database, retrieve q
 
 ### Installation and Usage
 
-The server runs on Node.js®, a JavaScript runtime built on Chrome's V8 JavaScript engine. To download Node.js, visit https://nodejs.org/en/ 
+The server runs on Node.js®, a JavaScript runtime built on Chrome's V8 JavaScript engine. It also requires a functioning installation of PostgreSQL. To download Node.js, visit https://nodejs.org/en/ 
 
-To run the server, simply clone https://github.com/CMudge/server.git in a terminal window by using `git clone https://github.com/CMudge/server.git`. Then execute `node httpServer.js` in a terminal window.
+To run the server, simply clone https://github.com/CMudge/server.git in a terminal window by using `git clone https://github.com/CMudge/server.git`. Then recreate the SQL schema by executing the `table_creation.sql` file. Finally execute `node httpServer.js` in a terminal window.
 
 ### API
 
