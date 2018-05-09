@@ -11,8 +11,8 @@ app.use(bodyParser.urlencoded({
 }));
 app.use(bodyParser.json());   
 
-// adding functionality to allow cross-domain queries when PhoneGap is running a server
-// this prevents cross-domain errors
+// Add functionality to allow cross-domain queries when PhoneGap is running a server
+// This prevents cross-domain errors
 app.use(function(req, res, next) {
 	res.setHeader("Access-Control-Allow-Origin", "*");
 	res.setHeader("Access-Control-Allow-Headers", "X-Requested-With");
@@ -27,20 +27,23 @@ var http = require('http');
 var httpServer = http.createServer(app); 
 httpServer.listen(4480);
 
-
+// GET endpoint `/closestQuestion`
 app.get('/closestQuestion', function (req,res) {
+	// Connect to Postgres database
 	pool.connect(function(err,client,done) {	
 		if(err){
 			console.log("not able to get connection "+ err);
 			res.status(400).send(err);
 		}
 		console.log("Request received closestQuestion");
+		// Parse "GET" aurguments
 		// Code to parse "GET" arguments taken from:
 		// https://stackoverflow.com/questions/6912584/how-to-get-get-query-string-variables-in-express-js-on-node-js
 		var parts = url.parse(req.url, true);
 		var args = parts.query;
 		var lat = args.lat;
 		var lng = args.lng;
+		// Build SQL select query to return the nearest question to the "GET" request's latitude and longitude
 		var query = "SELECT 'FeatureCollection' as type,"+
 	"        array_to_json(array_agg(f)) as features "+
 	"	FROM ("+
@@ -50,7 +53,9 @@ app.get('/closestQuestion', function (req,res) {
 	"FROM (SELECT *, ST_Distance(questions.geom, ST_GeomFromText('POINT("+lng+" "+lat+")', 4326)) as distance "+
 	"FROM questions ORDER BY distance LIMIT 1) lg"+
 	") As f;";
+		// Display the query on the console
 		console.log(query);
+		// Send the query to the database
 		client.query(query, function(err, result) {
 			done();
 			if(err){
@@ -63,23 +68,24 @@ app.get('/closestQuestion', function (req,res) {
 		});
 	});
 });
-	
+
+// POST endpoint `/createQuestion`	
 app.post('/createQuestion', function(req,res) {
-    // note that we are using POST here as we are uploading data
-    // so the parameters form part of the BODY of the request rather than the RESTful API
     console.dir(req.body);
+	// Connect to Postgres database
     pool.connect(function(err,client,done) {
 		if(err){
 			console.log("not able to get connection "+ err);
 			res.status(400).send(err);
 		}
 				 
-		// pull the geometry component together
+		// Pull the geometry component together as SQL
 		var geometrystring = "st_geomfromtext('POINT(" + req.body.lng + " " + req.body.lat + ")', 4326";
-				 
+		// Form SQL insert statement with the parts of the question-setting form
 		var querystring = "INSERT into questions (question, answer1, answer2, answer3, answer4, correctAnswer, geom) values ('" + req.body.question + "','" + req.body.answer1 + "','" + req.body.answer2 +"','" + req.body.answer3 + "','" + req.body.answer4 + "','" + req.body.correctAnswer + "'," + geometrystring + "));";
-				 
+		// Display the query on the console
 		console.log(querystring);
+		// Send the query to the database
 		client.query(querystring, function(err,result) {
 			done();
 			if(err){
@@ -92,19 +98,21 @@ app.post('/createQuestion', function(req,res) {
 });
 
 
-
+// POST endpoint `/submitAnswer` 
 app.post('/submitAnswer', function(req,res) {
-	// note that we are using POST here as we are uploading data
-	// so the parameters form part of the BODY of the request rather than the RESTful API
+	// Parameters form part of the BODY of the request rather than the RESTful API
 	console.dir(req.body);
+	// Connect to Postgres database
 	pool.connect(function(err,client,done) {
 		if(err){
 			console.log("not able to get connection "+ err);
 			res.status(400).send(err);
 		}
-
+		// Form SQL insert statement
 		var querystring = "INSERT into answers (question, submittedAnswer, deviceUUID) values ('" + req.body.question + "','" + req.body.submittedAnswer + "','" + req.body.deviceUUID + "');";
+		// Display the query on the console
 		console.log(querystring);
+		// Send the query to the database
 		client.query(querystring, function(err,result) {
 			done();
 			if(err){
@@ -117,10 +125,10 @@ app.post('/submitAnswer', function(req,res) {
 });
 
 
-// read in the file and force it to be a string by adding "" at the beginning
+// Read in the file and force it to be a string by adding "" at the beginning
 var configtext = ""+fs.readFileSync("/home/studentuser/certs/postGISConnection.js");
 
-// now convert the configruation file into the correct format -i.e. a name/value pair array
+// Convert the configruation file into the correct format -i.e. a name/value pair array
 var configarray = configtext.split(",");
 var config = {};
 for (var i = 0; i < configarray.length; i++) {
